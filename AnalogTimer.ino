@@ -182,9 +182,10 @@ void loop()
       flash(FLASHES_ON_END);
       timeSeconds = getResetTime();
 
-      if (shouldResetAtEnd())
+      if (!shouldResetAtEnd())
       {
         running = false;
+        analogWrite(PIN_R, 0);
       }
     }
 
@@ -193,4 +194,12 @@ void loop()
 
   Serial.println(timeSeconds);
   displayValue(PIN_PWM, timeSeconds, getMaxTime());
+
+  if (running)
+  {
+    // Keep breathing! See Sean Voisen great post from which I grabbed the formula.
+    // https://sean.voisen.org/blog/2011/10/breathing-led-with-arduino/
+    float val = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 108.0;
+    analogWrite(PIN_R, val);
+  }
 }

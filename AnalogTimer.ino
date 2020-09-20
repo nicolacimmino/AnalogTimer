@@ -10,18 +10,26 @@
 #define PIN_ENC_A 9
 #define PIN_ENC_B 10
 #define PIN_ENC_SW 8
+#define MODE_TEETH 0
+#define MODE_EGG 1
+#define EEPROM_MODE 0
+#define EEPROM_RESET_TABLE_BASE 1
+#define MODES_COUNT 2
+#define MAX_TIME_EGG 60 * 15
+#define INCREMENT_TIME_EGG 10
+#define MAX_TIME_TEETH 60
+#define INCREMENT_TIME_TEETH 1
+#define FLASHES_ON_END 4
 
-uint8_t timeSeconds = 60;
-uint8_t resetTimeSeconds = 60;
+uint8_t mode;
+int16_t timeSeconds;
+bool running;
 
 RotaryEncoder rotaryEncoder;
 
-bool running = false;
-bool autoRestart = true;
-
 void flash(uint8_t times = 4)
 {
-  for (uint8_t ix = 0; ix < times; ix++)
+  while (times-- > 0)
   {
     digitalWrite(PIN_R, HIGH);
     delay(200);
@@ -30,10 +38,10 @@ void flash(uint8_t times = 4)
   }
 }
 
-void displayValue(uint8_t pin, uint8_t value, uint8_t maxValue)
+void displayValue(uint8_t pin, int16_t value, uint16_t maxValue)
 {
-  static uint8_t lastLevel = 0;
-  uint8_t pwmLevel = (250 * value) / maxValue;
+  static int16_t lastLevel = 0;
+  uint8_t pwmLevel = (250.0 * value) / maxValue;
 
   for (uint8_t level = lastLevel; level != pwmLevel; level += (pwmLevel < lastLevel) ? -1 : 1)
   {
@@ -63,33 +71,57 @@ void displayBatteryLevel()
   displayValue(PIN_PWM, measuredVcc / 100, 34);
 }
 
+uint16_t getMaxTime()
+{
+  if (mode == MODE_EGG)
+  {
+    return MAX_TIME_EGG;
+  }
+
+  return MAX_TIME_TEETH;
+}
+
+uint16_t getIncrement()
+{
+  if (mode == MODE_EGG)
+  {
+    return INCREMENT_TIME_EGG;
+  }
+
+  return INCREMENT_TIME_TEETH;
+}
+
+uint16_t getResetTime()
+{
+  uint16_t resetTimeSeconds;
+  EEPROM.get(EEPROM_RESET_TABLE_BASE + (2 * mode), resetTimeSeconds);
+
+  return min(resetTimeSeconds, getMaxTime());
+}
+
 void click()
 {
   if (!running)
   {
     running = true;
-    resetTimeSeconds = timeSeconds;
-    EEPROM.write(1, resetTimeSeconds);
+    EEPROM.put(EEPROM_RESET_TABLE_BASE + (2 * mode), timeSeconds);
   }
 }
 
 void longPress()
 {
-  if (running)
+  if (!running)
+  {
+    mode = (mode + 1) % MODES_COUNT;
+    EEPROM.write(EEPROM_MODE, mode);
+  }
+  else
   {
     running = false;
-    if (autoRestart)
-    {
-      timeSeconds = resetTimeSeconds;
-    }
-    return;
   }
 
-  autoRestart = !autoRestart;
-
-  EEPROM.write(0, autoRestart ? 1 : 0);
-
-  flash(autoRestart ? 1 : 2);
+  timeSeconds = getResetTime();
+  flash(mode + 1);
 }
 
 void rotation(bool cw, int position)
@@ -99,15 +131,9 @@ void rotation(bool cw, int position)
     return;
   }
 
-  if (cw && timeSeconds < 60)
-  {
-    timeSeconds++;
-  }
+  timeSeconds += ((cw ? 1 : -1) * (int16_t)getIncrement());
 
-  if (!cw && timeSeconds > 0)
-  {
-    timeSeconds--;
-  }
+  timeSeconds = min(max(timeSeconds, 0), getMaxTime());
 }
 
 void setup()
@@ -121,18 +147,22 @@ void setup()
   rotaryEncoder.registerOnLongPressCallback(longPress);
   rotaryEncoder.registerOnRotationCallback(rotation);
 
-  autoRestart = (EEPROM.read(0) > 0);
-  resetTimeSeconds = min(EEPROM.read(1), 60);
-  timeSeconds = resetTimeSeconds;
+  mode = EEPROM.read(EEPROM_MODE) % MODES_COUNT;
+  timeSeconds = getResetTime();
+  running = false;
 
-  flash(autoRestart ? 1 : 2);
+  flash(mode + 1);
 
   delay(1000);
   digitalWrite(PIN_R, HIGH);
-
   displayBatteryLevel();
   delay(2000);
   digitalWrite(PIN_R, LOW);
+}
+
+bool shouldResetAtEnd()
+{
+  return mode == MODE_TEETH;
 }
 
 void loop()
@@ -149,23 +179,18 @@ void loop()
     }
     else
     {
-      flash();
+      flash(FLASHES_ON_END);
+      timeSeconds = getResetTime();
 
-      if (!autoRestart)
+      if (shouldResetAtEnd())
       {
         running = false;
-      }
-      else
-      {
-        timeSeconds = resetTimeSeconds;
       }
     }
 
     lastTick = millis();
-    
   }
 
-Serial.println(timeSeconds);
-  displayValue(PIN_PWM, timeSeconds, 60);
-  
+  Serial.println(timeSeconds);
+  displayValue(PIN_PWM, timeSeconds, getMaxTime());
 }

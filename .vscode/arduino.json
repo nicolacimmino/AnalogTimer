@@ -2,5 +2,5 @@
     "port": "COM9",
     "board": "SparkFun:avr:promicro",
     "configuration": "cpu=8MHzatmega32U4",
-    "sketch": "TeethTimer.ino"
+    "sketch": "AnalogTimer.ino"
 }

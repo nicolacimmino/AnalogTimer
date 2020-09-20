@@ -15,7 +15,7 @@
 #define EEPROM_MODE 0
 #define EEPROM_RESET_TABLE_BASE 1
 #define MODES_COUNT 2
-#define MAX_TIME_EGG 60 * 15
+#define MAX_TIME_EGG 60 * 20
 #define INCREMENT_TIME_EGG 10
 #define MAX_TIME_TEETH 60
 #define INCREMENT_TIME_TEETH 1
@@ -24,17 +24,18 @@
 uint8_t mode;
 int16_t timeSeconds;
 bool running;
+bool paused = false;
 
 RotaryEncoder rotaryEncoder;
 
-void flash(uint8_t times = 4)
+void flash(uint8_t times = 8)
 {
   while (times-- > 0)
   {
     digitalWrite(PIN_R, HIGH);
-    delay(200);
+    delay(100);
     digitalWrite(PIN_R, LOW);
-    delay(300);
+    delay(200);
   }
 }
 
@@ -105,7 +106,10 @@ void click()
   {
     running = true;
     EEPROM.put(EEPROM_RESET_TABLE_BASE + (2 * mode), timeSeconds);
+    return;
   }
+
+  paused = !paused;
 }
 
 void longPress()
@@ -118,6 +122,7 @@ void longPress()
   else
   {
     running = false;
+    paused = false;
   }
 
   timeSeconds = getResetTime();
@@ -138,7 +143,6 @@ void rotation(bool cw, int position)
 
 void setup()
 {
-  Serial.begin(9600);
   pinMode(PIN_R, OUTPUT);
   pinMode(PIN_PWM, OUTPUT);
 
@@ -171,7 +175,7 @@ void loop()
 
   rotaryEncoder.loop();
 
-  if (running && millis() - lastTick > 1000)
+  if ((running && !paused) && millis() - lastTick > 1000)
   {
     if (timeSeconds > 0)
     {
@@ -192,14 +196,24 @@ void loop()
     lastTick = millis();
   }
 
-  Serial.println(timeSeconds);
   displayValue(PIN_PWM, timeSeconds, getMaxTime());
 
   if (running)
   {
-    // Keep breathing! See Sean Voisen great post from which I grabbed the formula.
-    // https://sean.voisen.org/blog/2011/10/breathing-led-with-arduino/
-    float val = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 108.0;
-    analogWrite(PIN_R, val);
+    if (paused)
+    {
+      digitalWrite(PIN_R, HIGH);
+    }
+    else
+    {
+      // Keep breathing! See Sean Voisen great post from which I grabbed the formula.
+      // https://sean.voisen.org/blog/2011/10/breathing-led-with-arduino/
+      float val = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 108.0;
+      analogWrite(PIN_R, val);
+    }
+  }
+  else
+  {
+    digitalWrite(PIN_R, LOW);
   }
 }

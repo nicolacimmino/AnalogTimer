@@ -69,7 +69,9 @@ void displayBatteryLevel()
   long measuredVcc = 1125300L / (ADCL | (ADCH << 8));
   analogReference(DEFAULT);
 
-  displayValue(PIN_PWM, measuredVcc / 100, 34);
+  uint8_t batteryPercentage = min(max((measuredVcc - 2700) / 7, 0), 100);
+
+  displayValue(PIN_PWM, batteryPercentage, 100);
 }
 
 uint16_t getMaxTime()

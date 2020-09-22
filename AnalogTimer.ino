@@ -6,6 +6,7 @@
 #define PIN_R 3
 #define PIN_Y 9
 #define PIN_G 10
+#define PIN_BUZZER A0
 #define PIN_PWM 6
 #define PIN_ENC_A 9
 #define PIN_ENC_B 10
@@ -25,6 +26,7 @@ uint8_t mode;
 int16_t timeSeconds;
 bool running;
 bool paused = false;
+bool soundsOn = false;
 
 RotaryEncoder rotaryEncoder;
 
@@ -143,15 +145,72 @@ void rotation(bool cw, int position)
   timeSeconds = min(max(timeSeconds, 0), getMaxTime());
 }
 
+void beep(uint16_t durationMillis)
+{
+  unsigned long beepUntil = millis() + durationMillis;
+
+  while (millis() < beepUntil)
+  {
+    if (soundsOn)
+    {
+      digitalWrite(PIN_BUZZER, HIGH);
+      delayMicroseconds(500);
+      digitalWrite(PIN_BUZZER, LOW);
+      delayMicroseconds(500);
+    }
+  }
+}
+
+void timeUp()
+{
+  if (shouldResetAtEnd())
+  {
+    beep(200);
+    for (uint8_t b = 0; b < 4; b++)
+    {
+      digitalWrite(PIN_R, HIGH);
+      delay(100);
+      digitalWrite(PIN_R, LOW);
+      delay(200);
+    }
+    return;
+  }
+
+  for (uint8_t b = 0; b < 4; b++)
+  {
+    beep(b < 3 ? 200 : 1000);
+
+    if (b < 3)
+    {
+      digitalWrite(PIN_R, HIGH);
+      delay(100);
+      digitalWrite(PIN_R, LOW);
+      delay(300);
+      digitalWrite(PIN_R, HIGH);
+      delay(100);
+      digitalWrite(PIN_R, LOW);
+      delay(100);
+    }
+  }
+}
+
 void setup()
 {
   pinMode(PIN_R, OUTPUT);
   pinMode(PIN_PWM, OUTPUT);
+  pinMode(PIN_BUZZER, OUTPUT);
+  digitalWrite(PIN_BUZZER, LOW);
 
   rotaryEncoder.begin(PIN_ENC_A, PIN_ENC_B, PIN_ENC_SW, ROTARY_ENCODER_DECODE_MODE_4X, ROTARY_ENCODER_MODE_LINEAR, 0, 360);
   rotaryEncoder.registerOnClickCallback(click);
   rotaryEncoder.registerOnLongPressCallback(longPress);
   rotaryEncoder.registerOnRotationCallback(rotation);
+
+  if (digitalRead(PIN_ENC_SW) == LOW)
+  {
+    soundsOn = true;
+    beep(200);
+  }
 
   mode = EEPROM.read(EEPROM_MODE) % MODES_COUNT;
   timeSeconds = getResetTime();
@@ -185,7 +244,7 @@ void loop()
     }
     else
     {
-      flash(FLASHES_ON_END);
+      timeUp();
       timeSeconds = getResetTime();
 
       if (!shouldResetAtEnd())

@@ -13,11 +13,14 @@
 #define PIN_ENC_SW 8
 #define MODE_TEETH 0
 #define MODE_EGG 1
+#define MODE_COOK 2
 #define EEPROM_MODE 0
 #define EEPROM_RESET_TABLE_BASE 1
-#define MODES_COUNT 2
+#define MODES_COUNT 3
 #define MAX_TIME_EGG 60 * 20
+#define MAX_TIME_COOK 60 * 20
 #define INCREMENT_TIME_EGG 10
+#define INCREMENT_TIME_COOK 10
 #define MAX_TIME_TEETH 60
 #define INCREMENT_TIME_TEETH 1
 #define FLASHES_ON_END 4
@@ -83,6 +86,11 @@ uint16_t getMaxTime()
     return MAX_TIME_EGG;
   }
 
+  if (mode == MODE_COOK)
+  {
+    return MAX_TIME_COOK;
+  }
+
   return MAX_TIME_TEETH;
 }
 
@@ -91,6 +99,11 @@ uint16_t getIncrement()
   if (mode == MODE_EGG)
   {
     return INCREMENT_TIME_EGG;
+  }
+
+  if (mode == MODE_COOK)
+  {
+    return INCREMENT_TIME_COOK;
   }
 
   return INCREMENT_TIME_TEETH;
@@ -227,7 +240,7 @@ void setup()
 
 bool shouldResetAtEnd()
 {
-  return mode == MODE_TEETH;
+  return mode == MODE_TEETH || mode == MODE_COOK;
 }
 
 void loop()

@@ -207,6 +207,20 @@ void timeUp()
   }
 }
 
+bool interruptableDelay(uint32_t delayMs)
+{
+  unsigned long startTime = millis();
+  while (millis() - startTime < delayMs)
+  {
+    if (digitalRead(PIN_ENC_SW) == LOW)
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void setup()
 {
   pinMode(PIN_R, OUTPUT);
@@ -223,6 +237,10 @@ void setup()
   {
     soundsOn = true;
     beep(200);
+    while (digitalRead(PIN_ENC_SW) == LOW)
+    {
+      delay(1);
+    }
   }
 
   mode = EEPROM.read(EEPROM_MODE) % MODES_COUNT;
@@ -234,7 +252,8 @@ void setup()
   delay(1000);
   digitalWrite(PIN_R, HIGH);
   displayBatteryLevel();
-  delay(2000);
+
+  interruptableDelay(2000);
   digitalWrite(PIN_R, LOW);
 }
 

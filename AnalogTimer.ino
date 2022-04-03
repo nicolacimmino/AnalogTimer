@@ -32,30 +32,41 @@ int16_t timeSeconds;
 bool running;
 bool paused = false;
 bool soundsOn = false;
+uint8_t mode_leds[3] = {PIN_G, PIN_Y, PIN_R};
 
 RotaryEncoder rotaryEncoder;
 
 void powerUpSequence()
 {
-  digitalWrite(PIN_G, HIGH);
-  delay(500);
-  digitalWrite(PIN_Y, HIGH);
-  delay(500);
-  digitalWrite(PIN_R, HIGH);
+  for (uint8_t ix = 0; ix < MODES_COUNT; ix++)
+  {
+    digitalWrite(mode_leds[ix], HIGH);
+    delay(500);
+  }
+
   delay(500);
 
-  digitalWrite(PIN_G, LOW);
-  digitalWrite(PIN_Y, LOW);
-  digitalWrite(PIN_R, LOW);
+  for (uint8_t ix = 0; ix < MODES_COUNT; ix++)
+  {
+    digitalWrite(mode_leds[ix], LOW);
+  }
+}
+
+void showMode()
+{
+  for (uint8_t ix = 0; ix < MODES_COUNT; ix++)
+  {
+    digitalWrite(mode_leds[ix], ix == mode);
+  }
 }
 
 void flash(uint8_t times = 8)
 {
   while (times-- > 0)
   {
-    digitalWrite(PIN_R, HIGH);
+    digitalWrite(mode_leds[mode], HIGH);
     delay(100);
-    digitalWrite(PIN_R, LOW);
+    digitalWrite(mode_leds[mode], LOW);
     delay(200);
   }
 }
@@ -92,7 +103,18 @@ void displayBatteryLevel()
 
   uint8_t batteryPercentage = min(max((measuredVcc - 2700) / 7, 0), 100);
 
+  digitalWrite(PIN_G, batteryPercentage > 70);
+  digitalWrite(PIN_Y, batteryPercentage > 40);
+  digitalWrite(PIN_R, HIGH);
+
   displayValue(PIN_PWM, batteryPercentage, 100);
+
+  interruptableDelay(2000);
+
+  for (uint8_t ix = 0; ix < MODES_COUNT; ix++)
+  {
+    digitalWrite(mode_leds[ix], LOW);
+  }
 }
 
 uint16_t getMaxTime()
@@ -159,7 +181,7 @@ void longPress()
   }
 
   timeSeconds = getResetTime();
-  flash(mode + 1);
+  showMode();
 }
 
 void rotation(bool cw, int position)
@@ -197,9 +219,9 @@ void timeUp()
     beep(200);
     for (uint8_t b = 0; b < 4; b++)
     {
-      digitalWrite(PIN_R, HIGH);
+      digitalWrite(mode_leds[mode], HIGH);
       delay(100);
-      digitalWrite(PIN_R, LOW);
+      digitalWrite(mode_leds[mode], LOW);
       delay(200);
     }
     return;
@@ -211,13 +233,13 @@ void timeUp()
 
     if (b < 3)
     {
-      digitalWrite(PIN_R, HIGH);
+      digitalWrite(mode_leds[mode], HIGH);
       delay(100);
-      digitalWrite(PIN_R, LOW);
+      digitalWrite(mode_leds[mode], LOW);
       delay(300);
-      digitalWrite(PIN_R, HIGH);
+      digitalWrite(mode_leds[mode], HIGH);
       delay(100);
-      digitalWrite(PIN_R, LOW);
+      digitalWrite(mode_leds[mode], LOW);
       delay(100);
     }
   }
@@ -239,15 +261,15 @@ bool interruptableDelay(uint32_t delayMs)
 
 void setup()
 {
-  pinMode(PIN_R, OUTPUT);
-  pinMode(PIN_Y, OUTPUT);
-  pinMode(PIN_G, OUTPUT);
+  for (uint8_t ix = 0; ix < MODES_COUNT; ix++)
+  {
+    pinMode(mode_leds[ix], OUTPUT);
+    digitalWrite(mode_leds[ix], LOW);
+  }
+
   pinMode(PIN_PWM, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
   digitalWrite(PIN_BUZZER, LOW);
-  digitalWrite(PIN_R, LOW);
-  digitalWrite(PIN_Y, LOW);
-  digitalWrite(PIN_G, LOW);
 
   rotaryEncoder.begin(PIN_ENC_A, PIN_ENC_B, PIN_ENC_SW, ROTARY_ENCODER_DECODE_MODE_4X, ROTARY_ENCODER_MODE_LINEAR, 0, 360);
   rotaryEncoder.registerOnClickCallback(click);
@@ -268,15 +290,13 @@ void setup()
   timeSeconds = getResetTime();
   running = false;
 
-  // flash(mode + 1);
   powerUpSequence();
 
   delay(1000);
-  digitalWrite(PIN_R, HIGH);
+
   displayBatteryLevel();
 
-  interruptableDelay(2000);
-  digitalWrite(PIN_R, LOW);
+  showMode();
 }
 
 bool shouldResetAtEnd()
@@ -304,7 +324,7 @@ void loop()
       if (!shouldResetAtEnd())
       {
         running = false;
-        analogWrite(PIN_R, 0);
+        analogWrite(mode_leds[mode], 0);
       }
     }
 
@@ -317,18 +337,14 @@ void loop()
   {
     if (paused)
     {
-      digitalWrite(PIN_R, HIGH);
+      digitalWrite(mode_leds[mode], HIGH);
     }
     else
     {
       // Keep breathing! See Sean Voisen great post from which I grabbed the formula.
       // https://sean.voisen.org/blog/2011/10/breathing-led-with-arduino/
       float val = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 108.0;
-      analogWrite(PIN_R, val);
+      analogWrite(mode_leds[mode], val);
     }
-  }
-  else
-  {
-    digitalWrite(PIN_R, LOW);
-  }
+  }  
 }

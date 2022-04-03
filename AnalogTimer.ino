@@ -4,17 +4,19 @@
 #include <EEPROM.h>
 
 #define PIN_R 3
-#define PIN_Y 9
-#define PIN_G 10
+#define PIN_Y 5
+#define PIN_G 9
 #define PIN_BUZZER A0
 #define PIN_PWM 6
-#define PIN_ENC_A 9
-#define PIN_ENC_B 10
+#define PIN_ENC_A 10
+#define PIN_ENC_B 7
 #define PIN_ENC_SW 8
+
 #define MODE_TEETH 0
 #define MODE_EGG 1
 #define MODE_COOK 2
 #define EEPROM_MODE 0
+
 #define EEPROM_RESET_TABLE_BASE 1
 #define MODES_COUNT 3
 #define MAX_TIME_EGG 60 * 20
@@ -32,6 +34,20 @@ bool paused = false;
 bool soundsOn = false;
 
 RotaryEncoder rotaryEncoder;
+
+void powerUpSequence()
+{
+  digitalWrite(PIN_G, HIGH);
+  delay(500);
+  digitalWrite(PIN_Y, HIGH);
+  delay(500);
+  digitalWrite(PIN_R, HIGH);
+  delay(500);
+
+  digitalWrite(PIN_G, LOW);
+  digitalWrite(PIN_Y, LOW);
+  digitalWrite(PIN_R, LOW);
+}
 
 void flash(uint8_t times = 8)
 {
@@ -224,9 +240,14 @@ bool interruptableDelay(uint32_t delayMs)
 void setup()
 {
   pinMode(PIN_R, OUTPUT);
+  pinMode(PIN_Y, OUTPUT);
+  pinMode(PIN_G, OUTPUT);
   pinMode(PIN_PWM, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
   digitalWrite(PIN_BUZZER, LOW);
+  digitalWrite(PIN_R, LOW);
+  digitalWrite(PIN_Y, LOW);
+  digitalWrite(PIN_G, LOW);
 
   rotaryEncoder.begin(PIN_ENC_A, PIN_ENC_B, PIN_ENC_SW, ROTARY_ENCODER_DECODE_MODE_4X, ROTARY_ENCODER_MODE_LINEAR, 0, 360);
   rotaryEncoder.registerOnClickCallback(click);
@@ -247,7 +268,8 @@ void setup()
   timeSeconds = getResetTime();
   running = false;
 
-  flash(mode + 1);
+  // flash(mode + 1);
+  powerUpSequence();
 
   delay(1000);
   digitalWrite(PIN_R, HIGH);

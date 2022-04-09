@@ -2,8 +2,6 @@
 
 An analog timer, with an industrial look, that uses a milliammeter to display the time left.
 
-The timer has three modes:
-
 ## Modes
 
 ### Tooth brush timer mode
